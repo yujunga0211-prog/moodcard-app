@@ -4,7 +4,7 @@
 
 ### Issue tracker
 
-Issues are tracked in this repo's GitHub Issues (yujunga0211-prog/moodcard) via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues are tracked in this repo's GitHub Issues (yujunga0211-prog/moodcard-app) via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
