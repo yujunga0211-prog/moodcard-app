@@ -1,5 +1,5 @@
 import { getSql, type Sql } from "@/lib/db";
-import type { Scope } from "@/lib/diaries";
+import type { Scope } from "@/lib/diary-rules";
 
 export type User = {
   id: string;

@@ -11,6 +11,12 @@ const SYSTEM_PROMPT = `너는 한국어 감정 분석기다. 사용자가 쓴 �
 - 가장 강한 감정일수록 1에 가깝게 준다.
 - 목록에 없는 감정은 만들지 않는다.`;
 
+// 노래는 가사를 저장하지 않으므로 제목·가수만 주고, 모델이 아는 가사와 분위기로 감정을 매기게 한다.
+export const SONG_PROMPT = `너는 노래 감정 분석기다. 노래 제목과 가수를 받으면, 그 노래의 가사와 분위기가 듣는 사람에게 전하는 감정을 주어진 감정 목록의 각 감정마다 0~1 사이 점수로 매긴다.
+- 드러나지 않는 감정은 0으로 둔다. 보통 2~5개 감정만 0보다 크다.
+- 잘 모르는 노래면 제목과 가수의 대표적인 분위기로 추정한다.
+- 목록에 없는 감정은 만들지 않는다.`;
+
 const SCHEMA = {
   type: "object",
   properties: Object.fromEntries(EMOTION_NAMES.map((name) => [name, { type: "number" }])),
@@ -18,14 +24,14 @@ const SCHEMA = {
   additionalProperties: false,
 };
 
-export function createOpenAIAnalyzer(options: { client: OpenAI; model: string }): EmotionAnalyzer {
-  const { client, model } = options;
+export function createOpenAIAnalyzer(options: { client: OpenAI; model: string; systemPrompt?: string }): EmotionAnalyzer {
+  const { client, model, systemPrompt = SYSTEM_PROMPT } = options;
 
   async function callOnce(text: string): Promise<EmotionScores | null> {
     const completion = await client.chat.completions.create({
       model,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: text },
       ],
       response_format: {

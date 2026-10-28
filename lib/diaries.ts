@@ -1,4 +1,5 @@
 import { getSql, type Sql } from "@/lib/db";
+import { MAX_DIARY_LENGTH, type Scope } from "@/lib/diary-rules";
 import { addDays, monthRange, seoulDate } from "@/lib/dates";
 import { getEmotionAnalyzer, type EmotionAnalyzer } from "@/lib/emotion-analyzer";
 import { moodGroupOf, sanitizeScores, topEmotions, type EmotionScores, type TopEmotion } from "@/lib/emotions";
@@ -10,19 +11,7 @@ import {
   toVectorLiteral,
 } from "@/lib/recommend";
 
-export const SCOPES = [
-  { id: "ko", label: "한국 노래" },
-  { id: "pop", label: "팝송" },
-  { id: "all", label: "둘 다" },
-] as const;
-
-export type Scope = (typeof SCOPES)[number]["id"];
-
-export function isScope(value: unknown): value is Scope {
-  return SCOPES.some((s) => s.id === value);
-}
-
-export const MAX_DIARY_LENGTH = 2000;
+export { isScope, MAX_DIARY_LENGTH, SCOPES, type Scope } from "@/lib/diary-rules";
 export const DAILY_ANALYSIS_LIMIT = 10;
 const RECENT_DAYS = 7;
 const CANDIDATE_COUNT = 20;

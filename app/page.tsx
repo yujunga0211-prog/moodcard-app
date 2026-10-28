@@ -1,69 +1,96 @@
-import Image from "next/image";
+import { Suspense } from "react";
+import { PageLoading } from "./page-loading";
+import { redirect } from "next/navigation";
+import { currentUserId, devLoginEnabled, googleLoginEnabled } from "@/auth";
+import { seoulDate } from "@/lib/dates";
+import { appDiaries } from "@/lib/diaries";
+import { appUsers } from "@/lib/users";
+import { loginForDev, loginWithGoogle } from "./actions";
+import { CardView } from "./card-view";
+import { DiaryForm } from "./diary-form";
+import { cardClass, inputClass, primaryButtonClass, secondaryButtonClass } from "./ui";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <Suspense fallback={<PageLoading />}>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+async function HomeContent() {
+  const userId = await currentUserId();
+  const user = userId ? await appUsers().getUser(userId) : null;
+  if (!user) return <Landing />;
+  if (!user.consentedAt) redirect("/consent");
+
+  const day = await appDiaries().getDay(user.id, today());
+  return (
+    <main className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-8">
+      <DiaryForm initialText={day?.text ?? ""} initialScope={day?.scope ?? user.lastScope} rewriting={Boolean(day)} />
+      {day && <CardView card={day.card} shareable />}
+    </main>
+  );
+}
+
+// 요청 시각의 한국 날짜. 렌더링 중 new Date() 직접 호출은 react-hooks/purity lint에 걸려서 함수로 감쌌다.
+function today(): string {
+  return seoulDate(new Date());
+}
+
+const STEPS = [
+  ["✍️", "오늘의 일기를 써요"],
+  ["🧠", "AI가 감정을 세세하게 읽어요"],
+  ["🎧", "가사 감정이 비슷한 노래 3곡을 추천받아요"],
+  ["📅", "감정 색으로 칠해진 캘린더에 쌓여요"],
+  ["🔗", "링크로 친구에게 오늘 기분을 보내요"],
+];
+
+function Landing() {
+  return (
+    <main className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-10">
+      <section className="text-center">
+        <p className="text-sm font-semibold text-accent">AI 기분 일기장</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight">
+          오늘의 기분을
+          <br />
+          노래로 남겨요
+        </h1>
+        <p className="mt-3 text-muted">일기 한 편이면 AI가 기분을 읽고, 지금 듣기 좋은 노래를 골라 줘요.</p>
+      </section>
+      <ol className={`${cardClass} flex flex-col gap-3`}>
+        {STEPS.map(([icon, text]) => (
+          <li key={text} className="flex items-center gap-3">
+            <span aria-hidden className="grid size-9 place-items-center rounded-xl bg-accent-soft text-lg">
+              {icon}
+            </span>
+            {text}
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-col gap-3">
+        {googleLoginEnabled && (
+          <form action={loginWithGoogle}>
+            <button type="submit" className={`${primaryButtonClass} w-full py-3`}>
+              구글 계정으로 시작하기
+            </button>
+          </form>
+        )}
+        {devLoginEnabled && (
+          <form action={loginForDev} className={`${cardClass} flex flex-col gap-2 border-dashed`}>
+            <p className="text-sm text-muted">개발용 로그인 (로컬에서만 보여요)</p>
+            <div className="flex gap-2">
+              <input name="name" placeholder="이름" defaultValue="테스터" className={`${inputClass} min-w-0 flex-1`} />
+              <button type="submit" className={secondaryButtonClass}>
+                로그인
+              </button>
+            </div>
+          </form>
+        )}
+        {!googleLoginEnabled && !devLoginEnabled && (
+          <p className="text-center text-sm text-muted">로그인 설정을 준비하고 있어요. 잠시 후 다시 와 주세요.</p>
+        )}
+      </div>
+    </main>
   );
 }
