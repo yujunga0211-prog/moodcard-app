@@ -5,14 +5,19 @@ import { MAX_DIARY_LENGTH, SCOPES, type Scope } from "@/lib/diary-rules";
 import { writeDiary } from "./actions";
 import { cardClass, inputClass, primaryButtonClass } from "./ui";
 
+// date가 없으면 오늘 일기, 있으면 그날(지난 날) 일기를 쓴다. dateLabel은 "10월 27일"처럼 화면에 보일 날짜.
 export function DiaryForm({
   initialText,
   initialScope,
   rewriting,
+  date,
+  dateLabel,
 }: {
   initialText: string;
   initialScope: Scope;
   rewriting: boolean;
+  date?: string;
+  dateLabel?: string;
 }) {
   const [text, setText] = useState(initialText);
   const [scope, setScope] = useState<Scope>(initialScope);
@@ -24,7 +29,7 @@ export function DiaryForm({
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await writeDiary({ text, scope });
+      const result = await writeDiary({ text, scope, date });
       setError(result.error);
     });
   }
@@ -33,11 +38,11 @@ export function DiaryForm({
     <form onSubmit={submit} className={`${cardClass} flex flex-col gap-4`}>
       <div>
         <label htmlFor="diary" className="text-lg font-bold tracking-tight">
-          오늘 하루는 어땠나요?
+          {dateLabel ? `${dateLabel}은 어땠나요?` : "오늘 하루는 어땠나요?"}
         </label>
         <p className="mt-1 text-sm text-muted">
           {rewriting
-            ? "오늘 쓴 일기를 고쳐 쓰면 다시 분석해요. 공유 링크는 그대로예요."
+            ? "쓴 일기를 고쳐 쓰면 다시 분석해요. 공유 링크는 그대로예요."
             : "편하게 적어 주세요. 일기는 나만 볼 수 있어요."}
         </p>
       </div>

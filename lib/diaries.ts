@@ -1,15 +1,9 @@
 import { getSql, type Sql } from "@/lib/db";
 import { MAX_DIARY_LENGTH, type Scope } from "@/lib/diary-rules";
-import { addDays, monthRange, seoulDate } from "@/lib/dates";
+import { addDays, isDateString, monthRange, seoulDate } from "@/lib/dates";
 import { getEmotionAnalyzer, type EmotionAnalyzer } from "@/lib/emotion-analyzer";
 import { moodGroupOf, sanitizeScores, topEmotions, type EmotionScores, type TopEmotion } from "@/lib/emotions";
-import {
-  fromVectorLiteral,
-  listenLinks,
-  rankSongs,
-  recommendationReason,
-  toVectorLiteral,
-} from "@/lib/recommend";
+import { fromVectorLiteral, listenLinks, rankSongs, recommendationReason, toVectorLiteral } from "@/lib/recommend";
 
 export { isScope, MAX_DIARY_LENGTH, SCOPES, type Scope } from "@/lib/diary-rules";
 export const DAILY_ANALYSIS_LIMIT = 10;
@@ -39,7 +33,8 @@ export type Day = { date: string; text: string; scope: Scope; card: Card };
 
 export type CalendarDay = { date: string; emotion: string; moodGroup: string; color: string };
 
-export type WriteFailure = "empty" | "too_long" | "no_consent" | "daily_limit" | "analysis_failed" | "no_songs";
+export type WriteFailure =
+  "empty" | "too_long" | "invalid_date" | "no_consent" | "daily_limit" | "analysis_failed" | "no_songs";
 
 export type WriteResult = { ok: true; card: Card } | { ok: false; reason: WriteFailure };
 
@@ -93,19 +88,29 @@ export function createDiaries(sql: Sql, analyzer: EmotionAnalyzer) {
 
   return {
     // Diary를 쓰거나(같은 날이면 고쳐 쓰고) 분석·추천해서 그날 Card를 돌려준다.
-    async writeDiary(input: { userId: string; text: string; scope: Scope; now: Date }): Promise<WriteResult> {
+    // date를 주면 그날(오늘 또는 지난 날) Diary를 쓴다. 하루 분석 한도는 실제로 쓴 날(오늘) 기준으로 센다.
+    async writeDiary(input: {
+      userId: string;
+      text: string;
+      scope: Scope;
+      now: Date;
+      date?: string;
+    }): Promise<WriteResult> {
       const text = input.text.trim();
       if (text.length === 0) return { ok: false, reason: "empty" };
       if (text.length > MAX_DIARY_LENGTH) return { ok: false, reason: "too_long" };
 
-      const date = seoulDate(input.now);
+      const today = seoulDate(input.now);
+      const date = input.date ?? today;
+      if (!isDateString(date) || date > today) return { ok: false, reason: "invalid_date" };
+
       const users = await sql`
         SELECT consented_at,
-               (SELECT count(*)::int FROM analysis_log WHERE user_id = u.id AND date = ${date}) AS analyses
+               (SELECT count(*)::int FROM analysis_log WHERE user_id = u.id AND date = ${today}) AS analyses
         FROM users u WHERE id = ${input.userId}`;
       if (users.length === 0 || !users[0].consented_at) return { ok: false, reason: "no_consent" };
       if (users[0].analyses >= DAILY_ANALYSIS_LIMIT) return { ok: false, reason: "daily_limit" };
-      await sql`INSERT INTO analysis_log (user_id, date) VALUES (${input.userId}, ${date})`;
+      await sql`INSERT INTO analysis_log (user_id, date) VALUES (${input.userId}, ${today})`;
 
       const scores = await analyze(text);
       if (!scores) return { ok: false, reason: "analysis_failed" };

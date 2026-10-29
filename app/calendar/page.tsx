@@ -5,8 +5,10 @@ import { redirect } from "next/navigation";
 import { currentUserId } from "@/auth";
 import { formatKoreanDate, isDateString, seoulDate } from "@/lib/dates";
 import { appDiaries } from "@/lib/diaries";
+import { appUsers } from "@/lib/users";
 import { MOOD_GROUPS } from "@/lib/emotions";
 import { CardView } from "../card-view";
+import { DiaryForm } from "../diary-form";
 import { cardClass } from "../ui";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -29,9 +31,10 @@ async function CalendarContent({ searchParams }: Pick<PageProps<"/calendar">, "s
   const { year, month } = parseMonth(params.month, selected ?? today);
 
   const diaries = appDiaries();
-  const [days, day] = await Promise.all([
+  const [days, day, user] = await Promise.all([
     diaries.getCalendar(userId, year, month),
     selected ? diaries.getDay(userId, selected) : null,
+    appUsers().getUser(userId),
   ]);
   const byDate = new Map(days.map((d) => [d.date, d]));
 
@@ -104,23 +107,38 @@ async function CalendarContent({ searchParams }: Pick<PageProps<"/calendar">, "s
             </li>
           ))}
         </ul>
+        {!selected && (
+          <p className="mt-4 text-sm text-muted">날짜를 누르면 그날 일기를 보거나, 못 쓴 지난 일기를 쓸 수 있어요.</p>
+        )}
       </section>
 
       {selected && (
         <section className="flex flex-col gap-4">
           <h2 className="font-bold">{formatKoreanDate(selected)}</h2>
-          {day ? (
-            <>
-              <div className={`${cardClass} whitespace-pre-wrap leading-relaxed`}>{day.text}</div>
-              <CardView card={day.card} shareable />
-            </>
+          {selected > today ? (
+            <p className={`${cardClass} text-center text-sm text-muted`}>아직 오지 않은 날이에요.</p>
           ) : (
-            <p className={`${cardClass} text-center text-sm text-muted`}>이날은 쓴 일기가 없어요.</p>
+            <>
+              {/* key: 다른 날짜를 누르면 입력칸을 그날 내용으로 새로 채운다. */}
+              <DiaryForm
+                key={selected}
+                date={selected}
+                dateLabel={selected === today ? undefined : shortDate(selected)}
+                initialText={day?.text ?? ""}
+                initialScope={day?.scope ?? user?.lastScope ?? "all"}
+                rewriting={Boolean(day)}
+              />
+              {day && <CardView card={day.card} shareable />}
+            </>
           )}
         </section>
       )}
     </main>
   );
+}
+
+function shortDate(date: string) {
+  return `${Number(date.slice(5, 7))}월 ${Number(date.slice(8))}일`;
 }
 
 function pad(n: number) {

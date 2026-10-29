@@ -185,6 +185,33 @@ describe("writeDiary", () => {
     expect((await write(diaries, userId, "다음 날", "all", new Date(NOW.getTime() + DAY))).ok).toBe(true);
   }, 120_000);
 
+  it("writes a Diary for a past day, and rejects future or malformed dates", async () => {
+    const userId = await addUser();
+    const diaries = createDiaries(testSql, fakeAnalyzer());
+    const writeOn = (date: string) => diaries.writeDiary({ userId, text: "지난 일기", scope: "all", now: NOW, date });
+
+    const past = await writeOn("2026-10-20");
+    expect(past.ok && past.card.date).toBe("2026-10-20");
+    expect((await diaries.getDay(userId, "2026-10-20"))?.text).toBe("지난 일기");
+    expect((await writeOn("2026-11-03")).ok).toBe(true);
+
+    expect(await writeOn("2026-11-04")).toEqual({ ok: false, reason: "invalid_date" });
+    expect(await writeOn("2026-02-30")).toEqual({ ok: false, reason: "invalid_date" });
+    expect(await writeOn("어제")).toEqual({ ok: false, reason: "invalid_date" });
+  });
+
+  it("counts the daily limit by the day of writing, not the Diary's date", async () => {
+    const userId = await addUser();
+    const diaries = createDiaries(testSql, fakeAnalyzer());
+    await testSql`
+      INSERT INTO analysis_log (user_id, date)
+      SELECT ${userId}, '2026-11-03' FROM generate_series(1, ${DAILY_ANALYSIS_LIMIT})`;
+
+    const past = await diaries.writeDiary({ userId, text: "지난 일기", scope: "all", now: NOW, date: "2026-11-01" });
+
+    expect(past).toEqual({ ok: false, reason: "daily_limit" });
+  });
+
   it("reports when there are no Songs to recommend", async () => {
     await testSql`TRUNCATE songs RESTART IDENTITY CASCADE`;
     const userId = await addUser();

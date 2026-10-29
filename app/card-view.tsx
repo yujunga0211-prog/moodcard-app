@@ -1,10 +1,11 @@
-import { formatKoreanDate } from "@/lib/dates";
+import { formatKoreanDate, seoulDate } from "@/lib/dates";
 import type { Card } from "@/lib/diaries";
 import { moodGroupOf } from "@/lib/emotions";
 import { ShareButton } from "./share-button";
 
 // Card 한 장. 공유 화면과 본인 화면이 같이 쓴다. Diary 본문은 여기서 보여 주지 않는다.
 export function CardView({ card, shareable = false }: { card: Card; shareable?: boolean }) {
+  const isToday = card.date === todaySeoul();
   return (
     <article className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm">
       <div
@@ -13,7 +14,7 @@ export function CardView({ card, shareable = false }: { card: Card; shareable?: 
       >
         <p className="text-sm text-muted">{formatKoreanDate(card.date)}</p>
         <h2 className="mt-1 text-xl font-bold tracking-tight">
-          오늘의 기분은{" "}
+          {isToday ? "오늘의" : "이날의"} 기분은{" "}
           <span style={{ color: card.moodGroup.color }} className="brightness-75 dark:brightness-125">
             {card.top[0].emotion}
           </span>
@@ -37,7 +38,7 @@ export function CardView({ card, shareable = false }: { card: Card; shareable?: 
       </div>
 
       <div className="border-t border-line px-6 py-5">
-        <h3 className="text-sm font-semibold text-muted">오늘 어울리는 노래</h3>
+        <h3 className="text-sm font-semibold text-muted">{isToday ? "오늘" : "이날"} 어울리는 노래</h3>
         <ol className="mt-3 flex flex-col gap-3">
           {card.songs.map((song) => (
             <li key={song.rank} className="rounded-2xl bg-background px-4 py-3">
@@ -78,4 +79,9 @@ export function CardView({ card, shareable = false }: { card: Card; shareable?: 
       </div>
     </article>
   );
+}
+
+// 렌더링 중 new Date() 직접 호출은 react-hooks/purity lint에 걸려서 함수로 감쌌다.
+function todaySeoul(): string {
+  return seoulDate(new Date());
 }
